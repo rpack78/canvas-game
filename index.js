@@ -2,7 +2,8 @@ const canvas = document.querySelector('canvas')
 canvas.width = innerWidth
 canvas.height = innerHeight
 
-const c = canvas.getContext('2d');
+const c = canvas.getContext('2d')
+const friction = 0.99
 
 class Player {
     constructor(x, y, radius, color) {
@@ -66,12 +67,44 @@ class Enemy {
     }
 }
 
+class Particle {
+    constructor(x, y, radius, color, velocity) {
+        this.x = x
+        this.y = y
+        this.radius = radius
+        this.color = color
+        this.velocity = velocity
+        this.alpha = 1
+    }
+
+    draw() {
+        c.save()
+        c.globalAlpha = this.alpha
+        c.beginPath()
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false)
+        c.fillStyle = this.color
+        c.fill()
+        c.restore()
+    }
+
+    update() {
+        this.draw()
+        this.velocity.x *= friction
+        this.velocity.y *= friction
+        this.x += this.velocity.x
+        this.y += this.velocity.y
+        this.alpha -= .005
+    }
+}
+
 const x = canvas.width / 2
 const y = canvas.height / 2
-const projectiles = [];
-const enemies = [];
+const projectiles = []
+const enemies = []
+const particles = []
 const player = new Player(x, y, 10, 'white')
 const projectileSpeed = 6
+const particleSpeed = 4
 
 function spawnEnemies() {
     // Create an enemy every second, spawned from a random position outside of the canvas
@@ -143,7 +176,16 @@ function animate() {
         projectiles.forEach((projectile, projectileIndex) => {
             const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y)
             if (dist - projectile.radius - enemy.radius < 1) {
+
+                // Spawn particles to create an explosion
+                for (let i = 0; i < enemy.radius * 1.5; i++) {
+                    particles.push(new Particle(enemy.x, enemy.y, Math.random() * 3, enemy.color, {
+                        x: (Math.random() - 0.5) * particleSpeed,
+                        y: (Math.random() - 0.5) * particleSpeed
+                    }))
+                }
                 if (enemy.radius - 10 > 5) {
+                    // Shrink large enemy
                     gsap.to(enemy, {
                         radius: enemy.radius - 10
                     })
@@ -151,6 +193,7 @@ function animate() {
                         projectiles.splice(projectileIndex, 1)
                     }, 0);
                 } else {
+                    // Destroy enemy
                     setTimeout(() => {
                         enemies.splice(enemyIndex, 1)
                         projectiles.splice(projectileIndex, 1)
@@ -159,6 +202,13 @@ function animate() {
             }
         })
         enemy.update()
+        particles.forEach((particle, index) => {
+            if (particle.alpha <= 0) {
+                particles.splice(index, 1)
+            } else {
+                particle.update()
+            }
+        })
     })
 }
 animate()
